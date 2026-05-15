@@ -1,0 +1,140 @@
+import Anthropic from '@anthropic-ai/sdk'
+
+export type VisionMealItem = {
+  item_name: string
+  quantity: number
+  unit: string
+  calories: number
+  protein_g: number
+  carbs_g: number
+  fat_g: number
+  fiber_g: number
+  sodium_mg: number
+  confidence: 'high' | 'medium' | 'low'
+}
+
+export type VisionResult = {
+  items: VisionMealItem[]
+  total_calories: number
+  total_protein_g: number
+  total_carbs_g: number
+  total_fat_g: number
+  total_fiber_g: number
+  total_sodium_mg: number
+  ai_notes: string
+}
+
+const SYSTEM_PROMPT = `You are a nutrition analysis expert specializing in Indian cuisine. You identify all food items in meal photos and estimate their macronutrients accurately.
+
+Rules:
+- Default to Indian dishes, ingredients, and typical home-cooked portions unless the photo clearly shows otherwise.
+- For mixed dishes (dal, sabzi, curry), estimate based on standard home-cooked serving sizes.
+- Always estimate on the upper bound for calories and fat. Assume generous portions, extra oil/ghee, and full-fat ingredients. Add approximately 10% to your calorie and fat estimates. This is intentional — the user prefers to overestimate rather than underestimate.
+- Be conservative with oils — Indian cooking uses more oil than it appears. When in doubt, assume more oil was used.
+- Quantities: use grams for solids, ml for liquids, pieces for whole items (roti, egg, etc.).
+- If confidence is low for an item, still include it but mark confidence as "low".
+- Never hallucinate items not visible in the photo.
+- When a food item is visually ambiguous, name it with a slash between the two most likely options (e.g. "palak corn / palak dal", "pulao / mixed rice") rather than committing to one. Use the midpoint calorie and macro estimate between both options. Set confidence to "medium". Note both options and the uncertainty in ai_notes.
+- For rice dishes: if you see whole spices, vegetables, or mixed ingredients in the rice, call it "pulao / mixed rice", not plain rice. Estimate macros as the midpoint between plain rice and vegetable pulao.
+- Kadhi is a yellow/golden yogurt and gram flour curry, often with pakoda (fried gram flour dumplings) floating in it. It is never a dry dish. Do not confuse it with dum aloo (potato curry) or any other curry.
+- When you see a yellow/golden liquid curry with floating dumplings or fritters, it is kadhi pakoda. Confidence high.
+- Micros (sodium, fiber): provide best estimates, these are rough.
+
+Respond ONLY with a valid JSON object. No markdown fences. No explanation. No preamble.`
+
+type SupportedMimeType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
+
+const SUPPORTED_MIME_TYPES: SupportedMimeType[] = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+
+export async function analyzeMealPhoto(
+  base64Image: string,
+  mimeType: string,
+  mealSlot: string,
+  recentMealsContext: string,
+  dishHint?: string,
+): Promise<VisionResult> {
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+  const mediaType: SupportedMimeType = SUPPORTED_MIME_TYPES.includes(mimeType as SupportedMimeType)
+    ? (mimeType as SupportedMimeType)
+    : 'image/jpeg'
+
+  const contextLine = recentMealsContext ? `\n\n${recentMealsContext}` : ''
+  const dishHintLine = dishHint
+    ? `\nThe user says they are eating: "${dishHint}". Use this as your primary identification anchor. Adjust quantities and macros based on what you see in the photo.`
+    : ''
+
+  const userText = `This is my ${mealSlot} meal. Identify every food item visible and estimate macros.${dishHintLine}${contextLine}
+
+Return this exact JSON structure:
+{
+  "items": [
+    {
+      "item_name": "string",
+      "quantity": number,
+      "unit": "string",
+      "calories": number,
+      "protein_g": number,
+      "carbs_g": number,
+      "fat_g": number,
+      "fiber_g": number,
+      "sodium_mg": number,
+      "confidence": "high" | "medium" | "low"
+    }
+  ],
+  "total_calories": number,
+  "total_protein_g": number,
+  "total_carbs_g": number,
+  "total_fat_g": number,
+  "total_fiber_g": number,
+  "total_sodium_mg": number,
+  "ai_notes": "string — one sentence about anything uncertain or notable"
+}`
+
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 1024,
+    system: SYSTEM_PROMPT,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: mediaType, data: base64Image },
+          },
+          {
+            type: 'text',
+            text: userText,
+          },
+        ],
+      },
+    ],
+  })
+
+  const block = response.content[0]
+  if (block.type !== 'text') {
+    throw new Error('Unexpected response block type: ' + block.type)
+  }
+
+  const rawText = block.text.trim()
+  const jsonText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+
+  let parsed: VisionResult
+  try {
+    parsed = JSON.parse(jsonText) as VisionResult
+  } catch {
+    throw new Error('JSON parse failed. Raw response: ' + rawText)
+  }
+
+  // Code-level 10% uplift on calories and fat to ensure overestimation
+  parsed.items = parsed.items.map((item) => ({
+    ...item,
+    calories: Math.round(item.calories * 1.1),
+    fat_g:    Math.round(item.fat_g    * 1.1),
+  }))
+  parsed.total_calories = Math.round(parsed.total_calories * 1.1)
+  parsed.total_fat_g    = Math.round(parsed.total_fat_g    * 1.1)
+
+  return parsed
+}

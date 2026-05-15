@@ -1,0 +1,408 @@
+'use client'
+
+import { Suspense, useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { MEAL_SLOTS, type MealSlotKey } from '@/lib/config/meals'
+import type { VisionMealItem } from '@/lib/vision'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type EditItem = VisionMealItem & { source: 'ai' | 'manual'; _base: VisionMealItem }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const IST_MS = (5 * 60 + 30) * 60 * 1000
+
+function utcToISTTimeStr(utcTs: string): string {
+  const ist = new Date(new Date(utcTs).getTime() + IST_MS)
+  return `${String(ist.getUTCHours()).padStart(2, '0')}:${String(ist.getUTCMinutes()).padStart(2, '0')}`
+}
+
+// Converts HH:MM (IST) back to UTC ISO, preserving the original IST calendar date
+function timeToISO(timeStr: string, referenceUTC: string): string {
+  const ist = new Date(new Date(referenceUTC).getTime() + IST_MS)
+  const [h, m] = timeStr.split(':').map(Number)
+  const istDt = new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate(), h, m, 0))
+  return new Date(istDt.getTime() - IST_MS).toISOString()
+}
+
+function blankItem(): EditItem {
+  const base: VisionMealItem = { item_name: '', quantity: 1, unit: 'g', calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0, sodium_mg: 0, confidence: 'high' }
+  return { ...base, source: 'manual', _base: base }
+}
+
+// ─── Spinner ──────────────────────────────────────────────────────────────────
+
+function Spinner() {
+  return (
+    <div
+      className="animate-spin"
+      style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid currentColor', borderTopColor: 'transparent', display: 'inline-block' }}
+    />
+  )
+}
+
+// ─── Main content ─────────────────────────────────────────────────────────────
+
+function EditMealContent() {
+  const params    = useParams()
+  const router    = useRouter()
+  const id        = params.id as string
+
+  const [loading,      setLoading]      = useState(true)
+  const [fetchError,   setFetchError]   = useState(false)
+  const [originalUTC,  setOriginalUTC]  = useState('')  // original eaten_at for date anchoring
+  const [items,        setItems]        = useState<EditItem[]>([])
+  const [selectedSlot, setSelectedSlot] = useState<MealSlotKey>('breakfast')
+  const [loggedAt,     setLoggedAt]     = useState('')
+  const [aiNotes,      setAiNotes]      = useState('')
+  const [isSaving,     setIsSaving]     = useState(false)
+  const [isDeleting,   setIsDeleting]   = useState(false)
+  const [error,        setError]        = useState<string | null>(null)
+
+  useEffect(() => {
+    async function fetchMeal() {
+      try {
+        const res = await fetch(`/api/meals/${id}`)
+        if (!res.ok) throw new Error()
+        const { meal, items: fetchedItems } = await res.json()
+
+        const editItems: EditItem[] = (fetchedItems ?? []).map((item: {
+          item_name: string; quantity: number; unit: string
+          calories: number; protein_g: number; carbs_g: number
+          fat_g: number; fiber_g: number; sodium_mg: number; source: string
+        }) => {
+          const base: VisionMealItem = {
+            item_name: item.item_name,
+            quantity:  Number(item.quantity),
+            unit:      item.unit,
+            calories:  item.calories,
+            protein_g: Number(item.protein_g),
+            carbs_g:   Number(item.carbs_g),
+            fat_g:     Number(item.fat_g),
+            fiber_g:   Number(item.fiber_g),
+            sodium_mg: Number(item.sodium_mg),
+            confidence: 'high',
+          }
+          return { ...base, source: (item.source as 'ai' | 'manual') ?? 'manual', _base: base }
+        })
+
+        setItems(editItems)
+        setSelectedSlot(meal.meal_type as MealSlotKey)
+        setOriginalUTC(meal.eaten_at)
+        setLoggedAt(utcToISTTimeStr(meal.eaten_at))
+        setAiNotes(meal.ai_notes ?? '')
+      } catch {
+        setFetchError(true)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchMeal()
+  }, [id])
+
+  // ── Quantity / item handlers ──────────────────────────────────────────────
+
+  function handleQtyChange(idx: number, newQty: number) {
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== idx) return item
+        if (!newQty || item._base.quantity === 0) return { ...item, quantity: newQty }
+        const r = newQty / item._base.quantity
+        return {
+          ...item,
+          quantity:  newQty,
+          calories:  Math.round(item._base.calories  * r),
+          protein_g: Math.round(item._base.protein_g * r * 10) / 10,
+          carbs_g:   Math.round(item._base.carbs_g   * r * 10) / 10,
+          fat_g:     Math.round(item._base.fat_g     * r * 10) / 10,
+          fiber_g:   Math.round(item._base.fiber_g   * r * 10) / 10,
+          sodium_mg: Math.round(item._base.sodium_mg * r),
+        }
+      })
+    )
+  }
+
+  function handleDeleteItem(idx: number) {
+    setItems((prev) => prev.filter((_, i) => i !== idx))
+  }
+
+  function handleAddItem() {
+    setItems((prev) => [...prev, blankItem()])
+  }
+
+  // ── Live totals ───────────────────────────────────────────────────────────
+
+  const totals = items.reduce(
+    (acc, item) => ({
+      calories:  acc.calories  + (item.calories  || 0),
+      protein_g: acc.protein_g + (item.protein_g || 0),
+      carbs_g:   acc.carbs_g  + (item.carbs_g   || 0),
+      fat_g:     acc.fat_g    + (item.fat_g      || 0),
+    }),
+    { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 }
+  )
+
+  // ── Save ──────────────────────────────────────────────────────────────────
+
+  async function handleSave() {
+    setIsSaving(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/meals/${id}`, {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          meal_type: selectedSlot,
+          eaten_at:  timeToISO(loggedAt, originalUTC),
+          items:     items.map(({ _base: _b, ...rest }) => rest),
+          ai_notes:  aiNotes || null,
+        }),
+      })
+      if (!res.ok) throw new Error()
+      router.push('/dashboard')
+    } catch {
+      setError("couldn't save changes")
+      setIsSaving(false)
+    }
+  }
+
+  // ── Delete ────────────────────────────────────────────────────────────────
+
+  async function handleDelete() {
+    setIsDeleting(true)
+    try {
+      const res = await fetch(`/api/meals/${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error()
+      router.push('/dashboard')
+    } catch {
+      setError("couldn't delete meal")
+      setIsDeleting(false)
+    }
+  }
+
+  // ── Loading / error states ────────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#F5F1E8' }}>
+        <p style={{ color: '#6B7280', fontSize: 14 }}>loading…</p>
+      </div>
+    )
+  }
+
+  if (fetchError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: '#F5F1E8' }}>
+        <div className="text-center">
+          <p style={{ color: '#6B7280', fontSize: 14, marginBottom: 12 }}>couldn't load meal.</p>
+          <button
+            onClick={() => router.back()}
+            style={{ fontSize: 13, color: '#D4F542', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            go back
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const slotConfig = MEAL_SLOTS.find((s) => s.key === selectedSlot)
+  const busy       = isSaving || isDeleting
+
+  // ── UI ────────────────────────────────────────────────────────────────────
+
+  return (
+    <div className="min-h-screen px-4 pt-6 pb-8" style={{ backgroundColor: '#F5F1E8' }}>
+
+      {/* Header */}
+      <div className="flex items-center mb-6">
+        <button
+          onClick={() => router.back()}
+          style={{ color: '#0F1B2D', lineHeight: 1, background: 'none', border: 'none', padding: 0, cursor: 'pointer', marginRight: 12 }}
+        >
+          <i className="ti ti-arrow-left" style={{ fontSize: 22 }} />
+        </button>
+        <p style={{ fontSize: 17, fontWeight: 500, color: '#0F1B2D', flex: 1 }}>edit meal</p>
+        <button
+          onClick={handleDelete}
+          disabled={busy}
+          style={{ background: 'none', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', color: '#DC2626', padding: '0 0 0 8px', lineHeight: 1 }}
+        >
+          {isDeleting
+            ? <span style={{ fontSize: 12, color: '#DC2626' }}>deleting…</span>
+            : <i className="ti ti-trash" style={{ fontSize: 18 }} />
+          }
+        </button>
+      </div>
+
+      {/* Slot picker */}
+      <div className="flex gap-2 overflow-x-auto pb-2 mb-5" style={{ scrollbarWidth: 'none' }}>
+        {MEAL_SLOTS.map((slot) => {
+          const active = selectedSlot === slot.key
+          return (
+            <button
+              key={slot.key}
+              onClick={() => setSelectedSlot(slot.key)}
+              disabled={busy}
+              className="flex-shrink-0 px-4 py-2 text-sm"
+              style={{
+                borderRadius: 999,
+                fontWeight: active ? 500 : 400,
+                backgroundColor: active ? slot.color : '#fff',
+                color: active ? '#fff' : '#6B7280',
+                border: 'none',
+                borderLeft: active ? 'none' : `3px solid ${slot.color}`,
+                cursor: busy ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {slot.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Time picker */}
+      <div
+        className="flex items-center justify-between mb-4"
+        style={{ backgroundColor: '#fff', borderRadius: 12, padding: '12px 16px' }}
+      >
+        <div className="flex items-center gap-2">
+          <div
+            style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: slotConfig?.color ?? '#6B7280', flexShrink: 0 }}
+          />
+          <p style={{ fontSize: 14, color: '#0F1B2D', fontWeight: 500 }}>{slotConfig?.label}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <p style={{ fontSize: 13, color: '#6B7280' }}>logged at</p>
+          <input
+            type="time"
+            value={loggedAt}
+            onChange={(e) => setLoggedAt(e.target.value)}
+            disabled={busy}
+            style={{
+              fontSize: 13,
+              color: '#0F1B2D',
+              border: 'none',
+              background: 'transparent',
+              fontWeight: 500,
+              outline: 'none',
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Items list */}
+      <div className="flex flex-col gap-2 mb-3">
+        {items.map((item, idx) => (
+          <div key={idx} style={{ backgroundColor: '#fff', borderRadius: 12, padding: '12px 14px' }}>
+            <div className="flex items-center justify-between mb-2">
+              <input
+                value={item.item_name}
+                onChange={(e) => setItems((prev) => prev.map((it, i) => i === idx ? { ...it, item_name: e.target.value } : it))}
+                placeholder="Item name"
+                disabled={busy}
+                style={{ fontSize: 14, fontWeight: 500, color: '#0F1B2D', border: 'none', outline: 'none', background: 'transparent', flex: 1 }}
+              />
+              <button
+                onClick={() => handleDeleteItem(idx)}
+                disabled={busy}
+                style={{ background: 'none', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', padding: '0 0 0 8px', lineHeight: 1 }}
+              >
+                <i className="ti ti-trash" style={{ fontSize: 16, color: '#DC2626' }} />
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={item.quantity}
+                min={0}
+                step="any"
+                onChange={(e) => handleQtyChange(idx, parseFloat(e.target.value) || 0)}
+                disabled={busy}
+                style={{
+                  width: 64,
+                  fontSize: 13,
+                  color: '#0F1B2D',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: 8,
+                  padding: '4px 8px',
+                  outline: 'none',
+                  MozAppearance: 'textfield',
+                }}
+              />
+              <p style={{ fontSize: 13, color: '#6B7280', flex: 1 }}>{item.unit}</p>
+              <p style={{ fontSize: 13, color: '#6B7280' }}>{item.calories} kcal</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Add item */}
+      <button
+        onClick={handleAddItem}
+        disabled={busy}
+        style={{ fontSize: 13, color: '#6B7280', background: 'none', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', padding: '4px 0', marginBottom: 12 }}
+      >
+        + add item
+      </button>
+
+      {/* Totals bar */}
+      <div style={{ backgroundColor: '#fff', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
+        <p style={{ fontSize: 13, color: '#6B7280' }}>
+          {Math.round(totals.calories)} kcal
+          {' · '}P {Math.round(totals.protein_g * 10) / 10}g
+          {' · '}C {Math.round(totals.carbs_g   * 10) / 10}g
+          {' · '}F {Math.round(totals.fat_g     * 10) / 10}g
+        </p>
+      </div>
+
+      {/* AI notes */}
+      {aiNotes && (
+        <p className="mb-4" style={{ fontSize: 12, color: '#6B7280', fontStyle: 'italic' }}>
+          AI note: {aiNotes}
+        </p>
+      )}
+
+      {/* Error */}
+      {error && <p className="text-sm mb-3" style={{ color: '#DC2626' }}>{error}</p>}
+
+      {/* Save button */}
+      <button
+        onClick={handleSave}
+        disabled={busy || items.length === 0}
+        className="flex items-center justify-center gap-2 w-full"
+        style={{
+          backgroundColor: busy || items.length === 0 ? '#E5E7EB' : '#D4F542',
+          color:            busy || items.length === 0 ? '#9CA3AF' : '#0F1B2D',
+          borderRadius: 14,
+          padding: '13px 0',
+          fontSize: 13,
+          fontWeight: 500,
+          border: 'none',
+          cursor: busy || items.length === 0 ? 'not-allowed' : 'pointer',
+        }}
+      >
+        {isSaving ? (
+          <>
+            <Spinner />
+            saving…
+          </>
+        ) : (
+          'save changes'
+        )}
+      </button>
+
+    </div>
+  )
+}
+
+// ─── Page (Suspense wrapper for useParams) ────────────────────────────────────
+
+export default function EditMealPage() {
+  return (
+    <Suspense fallback={<div style={{ backgroundColor: '#F5F1E8', minHeight: '100vh' }} />}>
+      <EditMealContent />
+    </Suspense>
+  )
+}
