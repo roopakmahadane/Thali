@@ -18,7 +18,7 @@ type MacrosPerUnit = {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type EditItem = VisionMealItem & { source: 'ai' | 'manual'; _base: VisionMealItem }
+type EditItem = VisionMealItem & { source: 'ai' | 'manual'; _base: VisionMealItem; _fromBarcode?: boolean }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -182,6 +182,16 @@ function NewMealContent() {
     setStep('edit')
   }
 
+  // ── Direct macro edit (no proportional recompute) ─────────────────────────
+
+  function handleMacroChange(
+    idx: number,
+    field: 'calories' | 'protein_g' | 'carbs_g' | 'fat_g' | 'fiber_g',
+    value: number,
+  ) {
+    setItems((prev) => prev.map((item, i) => i === idx ? { ...item, [field]: value } : item))
+  }
+
   // ── Barcode scanning ──────────────────────────────────────────────────────
 
   function handleStopScan() {
@@ -216,7 +226,7 @@ function NewMealContent() {
         sodium_mg:  Math.round((n.sodium_100g         ?? 0) * f * 1000),
         confidence: 'high',
       }
-      setItems([{ ...base, source: 'manual', _base: base }])
+      setItems([{ ...base, source: 'manual', _base: base, _fromBarcode: true }])
       setEntryMode('manual')
       setAiNotes('')
       setStep('edit')
@@ -303,7 +313,7 @@ function NewMealContent() {
       meal_slot: selectedSlot,
       eaten_at:  timeToISO(loggedAt),
       // Strip _base before sending
-      items: items.map(({ _base: _b, ...rest }) => rest),
+      items: items.map(({ _base: _b, _fromBarcode: _fb, ...rest }) => rest),
       ai_notes: aiNotes || null,
     }
 
@@ -639,8 +649,8 @@ function NewMealContent() {
                 </button>
               </div>
 
-              {/* Qty + calories row */}
-              <div className="flex items-center gap-2">
+              {/* Qty + unit + cal */}
+              <div className="flex items-center gap-2 mb-2">
                 <input
                   type="number"
                   value={item.quantity}
@@ -658,8 +668,90 @@ function NewMealContent() {
                     MozAppearance: 'textfield',
                   }}
                 />
-                <p style={{ fontSize: 13, color: '#6B7280', flex: 1 }}>{item.unit}</p>
-                <p style={{ fontSize: 13, color: '#6B7280' }}>{item.calories} kcal</p>
+                <input
+                  type="text"
+                  value={item.unit}
+                  maxLength={10}
+                  onChange={(e) => setItems((prev) => prev.map((it, i) => i === idx ? { ...it, unit: e.target.value } : it))}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    fontSize: 13,
+                    color: '#6B7280',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: 8,
+                    padding: '4px 6px',
+                    outline: 'none',
+                  }}
+                />
+                <input
+                  type="number"
+                  value={item.calories}
+                  min={0}
+                  step="any"
+                  onChange={(e) => handleMacroChange(idx, 'calories', parseFloat(e.target.value) || 0)}
+                  style={{
+                    width: 60,
+                    fontSize: 13,
+                    textAlign: 'right',
+                    border: `1px solid ${item._fromBarcode && item.calories === 0 ? '#F59E0B' : '#E5E7EB'}`,
+                    borderRadius: 8,
+                    padding: '4px 6px',
+                    outline: 'none',
+                    MozAppearance: 'textfield',
+                  }}
+                />
+                <p style={{ fontSize: 13, color: '#6B7280' }}>kcal</p>
+              </div>
+
+              {/* P / C / F */}
+              <div className="flex items-center gap-2 mb-1">
+                {(['protein_g', 'carbs_g', 'fat_g'] as const).map((field) => (
+                  <div key={field} className="flex items-center gap-1">
+                    <p style={{ fontSize: 11, color: '#6B7280' }}>{field === 'protein_g' ? 'P' : field === 'carbs_g' ? 'C' : 'F'}</p>
+                    <input
+                      type="number"
+                      value={item[field]}
+                      min={0}
+                      step="any"
+                      onChange={(e) => handleMacroChange(idx, field, parseFloat(e.target.value) || 0)}
+                      style={{
+                        width: 52,
+                        fontSize: 13,
+                        textAlign: 'right',
+                        border: `1px solid ${item._fromBarcode && item[field] === 0 ? '#F59E0B' : '#E5E7EB'}`,
+                        borderRadius: 8,
+                        padding: '4px 6px',
+                        outline: 'none',
+                        MozAppearance: 'textfield',
+                      }}
+                    />
+                  </div>
+                ))}
+                <p style={{ fontSize: 11, color: '#6B7280' }}>g</p>
+              </div>
+
+              {/* Fiber */}
+              <div className="flex items-center gap-1">
+                <p style={{ fontSize: 11, color: '#9CA3AF' }}>fiber</p>
+                <input
+                  type="number"
+                  value={item.fiber_g}
+                  min={0}
+                  step="any"
+                  onChange={(e) => handleMacroChange(idx, 'fiber_g', parseFloat(e.target.value) || 0)}
+                  style={{
+                    width: 52,
+                    fontSize: 13,
+                    textAlign: 'right',
+                    border: `1px solid ${item._fromBarcode && item.fiber_g === 0 ? '#F59E0B' : '#E5E7EB'}`,
+                    borderRadius: 8,
+                    padding: '4px 6px',
+                    outline: 'none',
+                    MozAppearance: 'textfield',
+                  }}
+                />
+                <p style={{ fontSize: 11, color: '#9CA3AF' }}>g</p>
               </div>
 
               {/* Confidence badge */}

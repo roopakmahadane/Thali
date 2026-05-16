@@ -127,6 +127,14 @@ function EditMealContent() {
     setItems((prev) => prev.filter((_, i) => i !== idx))
   }
 
+  function handleMacroChange(
+    idx: number,
+    field: 'calories' | 'protein_g' | 'carbs_g' | 'fat_g' | 'fiber_g',
+    value: number,
+  ) {
+    setItems((prev) => prev.map((item, i) => i === idx ? { ...item, [field]: value } : item))
+  }
+
   function handleAddItem() {
     setItems((prev) => [...prev, blankItem()])
   }
@@ -312,7 +320,8 @@ function EditMealContent() {
                 <i className="ti ti-trash" style={{ fontSize: 16, color: '#DC2626' }} />
               </button>
             </div>
-            <div className="flex items-center gap-2">
+            {/* Qty + unit + cal */}
+            <div className="flex items-center gap-2 mb-2">
               <input
                 type="number"
                 value={item.quantity}
@@ -331,8 +340,94 @@ function EditMealContent() {
                   MozAppearance: 'textfield',
                 }}
               />
-              <p style={{ fontSize: 13, color: '#6B7280', flex: 1 }}>{item.unit}</p>
-              <p style={{ fontSize: 13, color: '#6B7280' }}>{item.calories} kcal</p>
+              <input
+                type="text"
+                value={item.unit}
+                maxLength={10}
+                disabled={busy}
+                onChange={(e) => setItems((prev) => prev.map((it, i) => i === idx ? { ...it, unit: e.target.value } : it))}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  fontSize: 13,
+                  color: '#6B7280',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: 8,
+                  padding: '4px 6px',
+                  outline: 'none',
+                }}
+              />
+              <input
+                type="number"
+                value={item.calories}
+                min={0}
+                step="any"
+                disabled={busy}
+                onChange={(e) => handleMacroChange(idx, 'calories', parseFloat(e.target.value) || 0)}
+                style={{
+                  width: 60,
+                  fontSize: 13,
+                  textAlign: 'right',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: 8,
+                  padding: '4px 6px',
+                  outline: 'none',
+                  MozAppearance: 'textfield',
+                }}
+              />
+              <p style={{ fontSize: 13, color: '#6B7280' }}>kcal</p>
+            </div>
+
+            {/* P / C / F */}
+            <div className="flex items-center gap-2 mb-1">
+              {(['protein_g', 'carbs_g', 'fat_g'] as const).map((field) => (
+                <div key={field} className="flex items-center gap-1">
+                  <p style={{ fontSize: 11, color: '#6B7280' }}>{field === 'protein_g' ? 'P' : field === 'carbs_g' ? 'C' : 'F'}</p>
+                  <input
+                    type="number"
+                    value={item[field]}
+                    min={0}
+                    step="any"
+                    disabled={busy}
+                    onChange={(e) => handleMacroChange(idx, field, parseFloat(e.target.value) || 0)}
+                    style={{
+                      width: 52,
+                      fontSize: 13,
+                      textAlign: 'right',
+                      border: '1px solid #E5E7EB',
+                      borderRadius: 8,
+                      padding: '4px 6px',
+                      outline: 'none',
+                      MozAppearance: 'textfield',
+                    }}
+                  />
+                </div>
+              ))}
+              <p style={{ fontSize: 11, color: '#6B7280' }}>g</p>
+            </div>
+
+            {/* Fiber */}
+            <div className="flex items-center gap-1">
+              <p style={{ fontSize: 11, color: '#9CA3AF' }}>fiber</p>
+              <input
+                type="number"
+                value={item.fiber_g}
+                min={0}
+                step="any"
+                disabled={busy}
+                onChange={(e) => handleMacroChange(idx, 'fiber_g', parseFloat(e.target.value) || 0)}
+                style={{
+                  width: 52,
+                  fontSize: 13,
+                  textAlign: 'right',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: 8,
+                  padding: '4px 6px',
+                  outline: 'none',
+                  MozAppearance: 'textfield',
+                }}
+              />
+              <p style={{ fontSize: 11, color: '#9CA3AF' }}>g</p>
             </div>
           </div>
         ))}
