@@ -4,6 +4,8 @@ import { MEAL_SLOTS } from '@/lib/config/meals'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
+  console.log('[analyze] route hit')
+
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -16,12 +18,18 @@ export async function POST(request: NextRequest) {
   const mealSlot = formData.get('meal_slot') as string | null
   const dishHint = (formData.get('dish_hint') as string | null) ?? undefined
 
+  console.log('[analyze] meal_slot:', mealSlot)
+  console.log('[analyze] dish_hint:', dishHint ?? '(none)')
+  console.log('[analyze] photo mime type:', photo?.type ?? '(no photo)')
+
   if (!photo || !mealSlot) {
     return NextResponse.json({ error: 'Missing photo or meal_slot' }, { status: 400 })
   }
 
   const buffer = Buffer.from(await photo.arrayBuffer())
   const base64 = buffer.toString('base64')
+
+  console.log('[analyze] base64 image size (chars):', base64.length)
 
   // Last 20 meals for context
   const { data: recentMeals } = await supabase
@@ -42,11 +50,17 @@ export async function POST(request: NextRequest) {
   }
   const recentMealsContext = parts.length ? 'Recent meals: ' + parts.join('; ') : ''
 
+  console.log('[analyze] recentMealsContext:', recentMealsContext || '(empty)')
 
   const slot = MEAL_SLOTS.find((s) => s.key === mealSlot)
   const slotLabel = slot?.label ?? mealSlot
 
-  const result = await analyzeMealPhoto(base64, photo.type, slotLabel, recentMealsContext, dishHint)
-
-  return NextResponse.json(result)
+  try {
+    const result = await analyzeMealPhoto(base64, photo.type, slotLabel, recentMealsContext, dishHint)
+    console.log('[analyze] success, items count:', result.items?.length ?? 0)
+    return NextResponse.json(result)
+  } catch (err) {
+    console.error('[analyze] error:', err instanceof Error ? err.stack : err)
+    return NextResponse.json({ error: 'Analysis failed' }, { status: 500 })
+  }
 }
