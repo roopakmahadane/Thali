@@ -29,7 +29,7 @@ const SYSTEM_PROMPT = `You are a nutrition analysis expert specializing in India
 Rules:
 - Default to Indian dishes, ingredients, and typical home-cooked portions unless the photo clearly shows otherwise.
 - For mixed dishes (dal, sabzi, curry), estimate based on standard home-cooked serving sizes.
-- Always estimate on the upper bound for calories and fat. Assume generous portions, extra oil/ghee, and full-fat ingredients. Add approximately 10% to your calorie and fat estimates. This is intentional — the user prefers to overestimate rather than underestimate.
+- Calorie and fat estimation: Indian home cooking has highly variable oil, ghee, and portion sizes that are consistently underestimated. Bake a buffer into your estimates based on your confidence — lean toward the upper end of your plausible range: high confidence items 5–10% above your midpoint estimate, medium confidence 15–20% above your midpoint, low confidence 20–25% above your midpoint. Apply this primarily to calories and fat. These buffers must already be baked into the numbers you return.
 - Be conservative with oils — Indian cooking uses more oil than it appears. When in doubt, assume more oil was used.
 - Quantities: use grams for solids, ml for liquids, pieces for whole items (roti, egg, etc.).
 - If confidence is low for an item, still include it but mark confidence as "low".
@@ -126,15 +126,6 @@ Return this exact JSON structure:
   } catch {
     throw new Error('JSON parse failed. Raw response: ' + rawText)
   }
-
-  // Code-level 10% uplift on calories and fat to ensure overestimation
-  parsed.items = parsed.items.map((item) => ({
-    ...item,
-    calories: Math.round(item.calories * 1.1),
-    fat_g:    Math.round(item.fat_g    * 1.1),
-  }))
-  parsed.total_calories = Math.round(parsed.total_calories * 1.1)
-  parsed.total_fat_g    = Math.round(parsed.total_fat_g    * 1.1)
 
   return parsed
 }

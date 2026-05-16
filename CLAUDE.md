@@ -196,6 +196,6 @@ Track this section as phases complete.
 ## Vision prompt decisions
 - Model: Claude Sonnet 4 (claude-sonnet-4-20250514)
 - Ambiguous items: named with slash between options (e.g. "palak corn / palak dal"), midpoint macros, confidence set to "medium"
-- Calories and fat: 10% upper bound applied both in system prompt instruction and in code after JSON.parse
+- Calories and fat: variable confidence-based buffer baked into AI estimates — high confidence 5–10% above midpoint, medium 15–20%, low 20–25%. No code-level multiplier applied after JSON.parse.
 - dishHint: optional user-typed field on capture screen, passed as primary identification anchor to the vision call
 - Photo: used for vision call only, discarded after, never stored
