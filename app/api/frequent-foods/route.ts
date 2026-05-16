@@ -15,5 +15,8 @@ export async function GET() {
     .order('times_logged', { ascending: false })
     .limit(8)
 
-  return NextResponse.json({ foods: foods ?? [] })
+  return NextResponse.json(
+    { foods: foods ?? [] },
+    { headers: { 'Cache-Control': 'private, max-age=60' } },
+  )
 }
