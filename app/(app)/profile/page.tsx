@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { calculateBreakdown, type ActivityLevel, type Goal } from '@/lib/macros/calculate'
 import WeightLogSection from '@/components/WeightLogSection'
+import SignOutButton from '@/components/SignOutButton'
 
 const GOAL_LABELS: Record<string, string> = {
   lose_weight:  'Lose weight',
@@ -69,7 +70,10 @@ export default async function ProfilePage() {
     <div className="min-h-screen px-4 pt-6 pb-24" style={{ backgroundColor: '#F5F1E8' }}>
 
       {/* ── Header ── */}
-      <p style={{ fontSize: 22, fontWeight: 500, color: '#0F1B2D', marginBottom: 20 }}>profile</p>
+      <div className="flex items-center justify-between" style={{ marginBottom: 20 }}>
+        <p style={{ fontSize: 22, fontWeight: 500, color: '#0F1B2D' }}>profile</p>
+        <SignOutButton />
+      </div>
 
       {/* ── Section 1: Goal + Targets ── */}
       <div className="mb-3" style={{ backgroundColor: '#fff', borderRadius: 20, padding: 18 }}>
