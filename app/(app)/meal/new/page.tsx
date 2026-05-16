@@ -142,6 +142,41 @@ function NewMealContent() {
     setError(null)
   }
 
+  // ── Image compression ────────────────────────────────────────────────────
+
+  function compressImage(file: File): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const MAX = 1024
+        let { width, height } = img
+        if (width > MAX || height > MAX) {
+          if (width > height) {
+            height = Math.round((height * MAX) / width)
+            width = MAX
+          } else {
+            width = Math.round((width * MAX) / height)
+            height = MAX
+          }
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0, width, height)
+        canvas.toBlob(
+          (blob) => (blob ? resolve(blob) : reject(new Error('canvas toBlob failed'))),
+          'image/jpeg',
+          0.8,
+        )
+      }
+      img.onerror = reject
+      img.src = url
+    })
+  }
+
   // ── Analyze ───────────────────────────────────────────────────────────────
 
   async function handleAnalyze() {
@@ -149,8 +184,9 @@ function NewMealContent() {
     setIsAnalyzing(true)
     setError(null)
 
+    const compressed = await compressImage(photoFile)
     const fd = new FormData()
-    fd.append('photo', photoFile)
+    fd.append('photo', compressed, 'photo.jpg')
     fd.append('meal_slot', selectedSlot)
     if (dishHint.trim()) fd.append('dish_hint', dishHint.trim())
 

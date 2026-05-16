@@ -3,6 +3,8 @@ import { analyzeMealPhoto } from '@/lib/vision'
 import { MEAL_SLOTS } from '@/lib/config/meals'
 import { NextRequest, NextResponse } from 'next/server'
 
+export const config = { api: { bodyParser: { sizeLimit: '10mb' } } }
+
 export async function POST(request: NextRequest) {
   console.log('[analyze] route hit')
 
