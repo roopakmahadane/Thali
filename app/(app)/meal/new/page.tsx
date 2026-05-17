@@ -95,6 +95,8 @@ function NewMealContent() {
   const [isScanning, setIsScanning] = useState(false)
   const [isFetchingProduct, setIsFetchingProduct] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
+  const [textDescription, setTextDescription] = useState('')
+  const [isTextAnalyzing, setIsTextAnalyzing] = useState(false)
 
   useEffect(() => {
     fetch('/api/frequent-foods')
@@ -218,6 +220,38 @@ function NewMealContent() {
     setItems([])
     setAiNotes('')
     setStep('edit')
+  }
+
+  // ── Text-based AI analysis ────────────────────────────────────────────────
+
+  async function handleTextAnalyze() {
+    if (!textDescription.trim()) return
+    setIsTextAnalyzing(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/meals/text-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: textDescription.trim(),
+          meal_slot: selectedSlot,
+          ...(dishHint.trim() ? { dish_hint: dishHint.trim() } : {}),
+        }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      const result = await res.json()
+      const editItems: EditItem[] = result.items.map((item: VisionMealItem) => ({
+        ...item,
+        source: 'ai' as const,
+        _base: { ...item },
+      }))
+      setItems(editItems)
+      setAiNotes(result.ai_notes ?? '')
+    } catch {
+      setError("Couldn't analyze the description. Try again.")
+    } finally {
+      setIsTextAnalyzing(false)
+    }
   }
 
   // ── Direct macro edit (no proportional recompute) ─────────────────────────
@@ -666,6 +700,57 @@ function NewMealContent() {
             />
           </div>
         </div>
+
+        {/* Text description (manual entry only) */}
+        {entryMode === 'manual' && (
+          <div style={{ backgroundColor: '#fff', borderRadius: 16, padding: '14px 16px', marginBottom: 12 }}>
+            <p style={{ fontSize: 11, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+              describe what you ate
+            </p>
+            <input
+              type="text"
+              value={textDescription}
+              onChange={(e) => setTextDescription(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleTextAnalyze() }}
+              placeholder="e.g. 3 roti, bhindi masala, 1 cup rice"
+              style={{
+                width: '100%',
+                fontSize: 14,
+                color: '#0F1B2D',
+                border: '1px solid #E5E7EB',
+                borderRadius: 10,
+                padding: '10px 12px',
+                outline: 'none',
+                backgroundColor: '#F9F9F9',
+                marginBottom: 10,
+              }}
+            />
+            <button
+              onClick={handleTextAnalyze}
+              disabled={!textDescription.trim() || isTextAnalyzing}
+              className="flex items-center justify-center gap-2 w-full"
+              style={{
+                backgroundColor: textDescription.trim() && !isTextAnalyzing ? '#D4F542' : '#E5E7EB',
+                color: textDescription.trim() && !isTextAnalyzing ? '#0F1B2D' : '#9CA3AF',
+                borderRadius: 10,
+                padding: '10px 0',
+                fontSize: 13,
+                fontWeight: 500,
+                border: 'none',
+                cursor: textDescription.trim() && !isTextAnalyzing ? 'pointer' : 'not-allowed',
+              }}
+            >
+              {isTextAnalyzing ? (
+                <>
+                  <Spinner />
+                  calculating…
+                </>
+              ) : (
+                'calculate'
+              )}
+            </button>
+          </div>
+        )}
 
         {/* Items list */}
         <div className="flex flex-col gap-2 mb-3">
