@@ -78,11 +78,48 @@ export async function GET() {
     itemsByMealId[mid].push(item as { item_name: string; quantity: number; unit: string })
   }
 
+  // Merge all rows for the same meal_type into one entry — guards against stale duplicate rows
+  type MergedMeal = {
+    id: string; meal_type: string; eaten_at: string; ai_notes: string | null
+    total_calories: number; total_protein_g: number; total_carbs_g: number; total_fat_g: number
+    items: { item_name: string; quantity: number; unit: string }[]
+  }
+  const mergedByType: Record<string, MergedMeal> = {}
+
+  for (const m of todayMeals) {
+    const mItems = itemsByMealId[m.id] ?? []
+    const entry = mergedByType[m.meal_type]
+    if (!entry) {
+      mergedByType[m.meal_type] = {
+        id:              m.id,
+        meal_type:       m.meal_type,
+        eaten_at:        m.eaten_at,
+        ai_notes:        m.ai_notes,
+        total_calories:  m.total_calories  ?? 0,
+        total_protein_g: Number(m.total_protein_g ?? 0),
+        total_carbs_g:   Number(m.total_carbs_g   ?? 0),
+        total_fat_g:     Number(m.total_fat_g      ?? 0),
+        items:           mItems,
+      }
+    } else {
+      entry.total_calories  += m.total_calories  ?? 0
+      entry.total_protein_g += Number(m.total_protein_g ?? 0)
+      entry.total_carbs_g   += Number(m.total_carbs_g   ?? 0)
+      entry.total_fat_g     += Number(m.total_fat_g      ?? 0)
+      entry.items.push(...mItems)
+      // Keep latest id/eaten_at so the card links to the most recent save
+      if (m.eaten_at > entry.eaten_at) { entry.id = m.id; entry.eaten_at = m.eaten_at }
+    }
+  }
+
+  const mergedMeals = Object.values(mergedByType)
+
+  // Totals computed from merged meals — prevents double-counting duplicate slot rows
   const today = {
-    calories_consumed: todayMeals.reduce((s, m) => s + (m.total_calories ?? 0), 0),
-    protein_g:         todayMeals.reduce((s, m) => s + Number(m.total_protein_g ?? 0), 0),
-    carbs_g:           todayMeals.reduce((s, m) => s + Number(m.total_carbs_g ?? 0), 0),
-    fat_g:             todayMeals.reduce((s, m) => s + Number(m.total_fat_g ?? 0), 0),
+    calories_consumed: mergedMeals.reduce((s, m) => s + m.total_calories,  0),
+    protein_g:         mergedMeals.reduce((s, m) => s + m.total_protein_g, 0),
+    carbs_g:           mergedMeals.reduce((s, m) => s + m.total_carbs_g,   0),
+    fat_g:             mergedMeals.reduce((s, m) => s + m.total_fat_g,     0),
   }
 
   // Sunday check-in logic (moved from page so the client component can receive it)
@@ -113,16 +150,6 @@ export async function GET() {
     today,
     show_checkin,
     week_key,
-    meals: todayMeals.map((m) => ({
-      id:              m.id,
-      meal_type:       m.meal_type,
-      eaten_at:        m.eaten_at,
-      total_calories:  m.total_calories,
-      total_protein_g: m.total_protein_g,
-      total_carbs_g:   m.total_carbs_g,
-      total_fat_g:     m.total_fat_g,
-      ai_notes:        m.ai_notes,
-      items:           itemsByMealId[m.id] ?? [],
-    })),
+    meals: mergedMeals,
   })
 }
