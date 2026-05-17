@@ -72,8 +72,6 @@ function EditMealContent() {
         if (!res.ok) throw new Error()
         const { meal, items: fetchedItems } = await res.json()
 
-        console.log('[EditMeal] fetchedItems count:', (fetchedItems ?? []).length, '| raw:', JSON.stringify(fetchedItems))
-
         const editItems: EditItem[] = (fetchedItems ?? []).map((item: {
           item_name: string; quantity: number; unit: string
           calories: number; protein_g: number; carbs_g: number
@@ -93,8 +91,6 @@ function EditMealContent() {
           }
           return { ...base, source: (item.source as 'ai' | 'manual') ?? 'manual', _base: base }
         })
-
-        console.log('[EditMeal] editItems count:', editItems.length, '| mapped:', JSON.stringify(editItems.map((i) => i.item_name)))
 
         setItems(editItems)
         setSelectedSlot(meal.meal_type as MealSlotKey)
