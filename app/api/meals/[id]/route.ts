@@ -79,8 +79,7 @@ export async function GET(
     supabase
       .from('meal_items')
       .select('id, item_name, quantity, unit, calories, protein_g, carbs_g, fat_g, fiber_g, sodium_mg, source')
-      .eq('meal_id', id)
-      .order('created_at', { ascending: true }),
+      .eq('meal_id', id),
   ])
 
   if (!meal) return NextResponse.json({ error: 'Not found' }, { status: 404 })
