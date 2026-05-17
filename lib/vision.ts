@@ -31,11 +31,11 @@ Rules:
 - For mixed dishes (dal, sabzi, curry), estimate based on standard home-cooked serving sizes.
 - Calorie and fat estimation: Indian home cooking has highly variable oil, ghee, and portion sizes that are consistently underestimated. Bake a buffer into your estimates based on your confidence — lean toward the upper end of your plausible range: high confidence items 5–10% above your midpoint estimate, medium confidence 15–20% above your midpoint, low confidence 20–25% above your midpoint. Apply this primarily to calories and fat. These buffers must already be baked into the numbers you return.
 - Be conservative with oils — Indian cooking uses more oil than it appears. When in doubt, assume more oil was used.
-- Quantities: use grams for solids, ml for liquids, pieces for whole items (roti, egg, etc.).
+- Quantities and units: apply this reasoning to pick the unit — ask "would someone say I had 2 of them, or I had some of it?" If "2 of them": use piece as the unit. If "some of it": use ml for liquids and gravies, grams for loose dry or cooked ingredients that are scooped or weighed. The only valid units are: piece, g, ml, cup, bowl, tbsp, tsp, slice.
 - If confidence is low for an item, still include it but mark confidence as "low".
 - Never hallucinate items not visible in the photo.
-- When a food item is visually ambiguous, name it with a slash between the two most likely options (e.g. "palak corn / palak dal", "pulao / mixed rice") rather than committing to one. Use the midpoint calorie and macro estimate between both options. Set confidence to "medium". Note both options and the uncertainty in ai_notes.
-- For rice dishes: if you see whole spices, vegetables, or mixed ingredients in the rice, call it "pulao / mixed rice", not plain rice. Estimate macros as the midpoint between plain rice and vegetable pulao.
+- When you cannot determine which of two dishes something is (genuine visual ambiguity), name it as "option A / option B", use midpoint macros, set confidence to "medium", and note the uncertainty in ai_notes. Use slash format only for genuine uncertainty — not to append an English translation to a dish you have already identified confidently. If you know what the dish is, use its name alone.
+- For rice dishes: if you see whole spices, vegetables, or mixed ingredients in the rice, it is pulao, not plain rice. Estimate macros accordingly. No slash needed unless you genuinely cannot tell.
 - Kadhi is a yellow/golden yogurt and gram flour curry, often with pakoda (fried gram flour dumplings) floating in it. It is never a dry dish. Do not confuse it with dum aloo (potato curry) or any other curry.
 - When you see a yellow/golden liquid curry with floating dumplings or fritters, it is kadhi pakoda. Confidence high.
 - Micros (sodium, fiber): provide best estimates, these are rough.

@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { MEAL_SLOTS, type MealSlotKey } from '@/lib/config/meals'
 import type { VisionMealItem } from '@/lib/vision'
 
+const UNIT_OPTIONS = ['piece', 'g', 'ml', 'cup', 'bowl', 'tbsp', 'tsp', 'slice'] as const
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type EditItem = VisionMealItem & { source: 'ai' | 'manual'; _base: VisionMealItem }
@@ -340,10 +342,8 @@ function EditMealContent() {
                   MozAppearance: 'textfield',
                 }}
               />
-              <input
-                type="text"
+              <select
                 value={item.unit}
-                maxLength={10}
                 disabled={busy}
                 onChange={(e) => setItems((prev) => prev.map((it, i) => i === idx ? { ...it, unit: e.target.value } : it))}
                 style={{
@@ -355,8 +355,14 @@ function EditMealContent() {
                   borderRadius: 8,
                   padding: '4px 6px',
                   outline: 'none',
+                  backgroundColor: '#fff',
                 }}
-              />
+              >
+                {(UNIT_OPTIONS.includes(item.unit as typeof UNIT_OPTIONS[number])
+                  ? UNIT_OPTIONS
+                  : [item.unit, ...UNIT_OPTIONS]
+                ).map((u) => <option key={u} value={u}>{u}</option>)}
+              </select>
               <input
                 type="number"
                 value={item.calories}
