@@ -305,7 +305,10 @@ function EditMealContent() {
         </button>
       </div>
 
-      {/* Slot picker */}
+      {/* Slot picker — reassigns this meal to a different type, does not navigate */}
+      <p style={{ fontSize: 11, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+        meal type
+      </p>
       <div className="flex gap-2 overflow-x-auto pb-2 mb-5" style={{ scrollbarWidth: 'none' }}>
         {MEAL_SLOTS.map((slot) => {
           const active = selectedSlot === slot.key
