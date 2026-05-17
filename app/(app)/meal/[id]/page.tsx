@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { MEAL_SLOTS, type MealSlotKey } from '@/lib/config/meals'
 import type { VisionMealItem } from '@/lib/vision'
@@ -51,16 +51,19 @@ function EditMealContent() {
   const router    = useRouter()
   const id        = params.id as string
 
-  const [loading,      setLoading]      = useState(true)
-  const [fetchError,   setFetchError]   = useState(false)
-  const [originalUTC,  setOriginalUTC]  = useState('')  // original eaten_at for date anchoring
-  const [items,        setItems]        = useState<EditItem[]>([])
-  const [selectedSlot, setSelectedSlot] = useState<MealSlotKey>('breakfast')
-  const [loggedAt,     setLoggedAt]     = useState('')
-  const [aiNotes,      setAiNotes]      = useState('')
-  const [isSaving,     setIsSaving]     = useState(false)
-  const [isDeleting,   setIsDeleting]   = useState(false)
-  const [error,        setError]        = useState<string | null>(null)
+  const addPhotoRef = useRef<HTMLInputElement>(null)
+
+  const [loading,          setLoading]          = useState(true)
+  const [fetchError,       setFetchError]        = useState(false)
+  const [originalUTC,      setOriginalUTC]       = useState('')  // original eaten_at for date anchoring
+  const [items,            setItems]             = useState<EditItem[]>([])
+  const [selectedSlot,     setSelectedSlot]      = useState<MealSlotKey>('breakfast')
+  const [loggedAt,         setLoggedAt]          = useState('')
+  const [aiNotes,          setAiNotes]           = useState('')
+  const [isSaving,         setIsSaving]          = useState(false)
+  const [isDeleting,       setIsDeleting]        = useState(false)
+  const [isPhotoAnalyzing, setIsPhotoAnalyzing]  = useState(false)
+  const [error,            setError]             = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchMeal() {
@@ -102,6 +105,62 @@ function EditMealContent() {
     }
     fetchMeal()
   }, [id])
+
+  // ── Add photo (append items from new photo) ───────────────────────────────
+
+  function compressImage(file: File): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const MAX = 1024
+        let { width, height } = img
+        if (width > MAX || height > MAX) {
+          if (width > height) { height = Math.round((height * MAX) / width); width = MAX }
+          else { width = Math.round((width * MAX) / height); height = MAX }
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = width; canvas.height = height
+        canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+        canvas.toBlob(
+          (blob) => (blob ? resolve(blob) : reject(new Error('toBlob failed'))),
+          'image/jpeg', 0.8,
+        )
+      }
+      img.onerror = reject
+      img.src = url
+    })
+  }
+
+  async function handleAddPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    // Reset input so the same file can be selected again if needed
+    e.target.value = ''
+    setIsPhotoAnalyzing(true)
+    setError(null)
+    try {
+      const compressed = await compressImage(file)
+      const fd = new FormData()
+      fd.append('photo', compressed, 'photo.jpg')
+      fd.append('meal_slot', selectedSlot)
+      const res = await fetch('/api/meals/analyze', { method: 'POST', body: fd })
+      if (!res.ok) throw new Error(await res.text())
+      const result = await res.json()
+      const newItems: EditItem[] = (result.items as VisionMealItem[]).map((item) => ({
+        ...item,
+        source: 'ai' as const,
+        _base: { ...item },
+      }))
+      setItems((prev) => [...prev, ...newItems])
+      if (!aiNotes && result.ai_notes) setAiNotes(result.ai_notes)
+    } catch {
+      setError("Couldn't analyze the photo. Try again.")
+    } finally {
+      setIsPhotoAnalyzing(false)
+    }
+  }
 
   // ── Quantity / item handlers ──────────────────────────────────────────────
 
@@ -439,14 +498,41 @@ function EditMealContent() {
         ))}
       </div>
 
-      {/* Add item */}
-      <button
-        onClick={handleAddItem}
-        disabled={busy}
-        style={{ fontSize: 13, color: '#6B7280', background: 'none', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', padding: '4px 0', marginBottom: 12 }}
-      >
-        + add item
-      </button>
+      {/* Add item / add photo row */}
+      <div className="flex items-center gap-4" style={{ marginBottom: 12 }}>
+        <button
+          onClick={handleAddItem}
+          disabled={busy}
+          style={{ fontSize: 13, color: '#6B7280', background: 'none', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', padding: '4px 0' }}
+        >
+          + add item
+        </button>
+        <button
+          onClick={() => addPhotoRef.current?.click()}
+          disabled={busy || isPhotoAnalyzing}
+          className="flex items-center gap-1"
+          style={{ fontSize: 13, color: '#6B7280', background: 'none', border: 'none', cursor: busy || isPhotoAnalyzing ? 'not-allowed' : 'pointer', padding: '4px 0' }}
+        >
+          {isPhotoAnalyzing ? (
+            <>
+              <Spinner />
+              <span style={{ marginLeft: 4 }}>analyzing…</span>
+            </>
+          ) : (
+            <>
+              <i className="ti ti-camera" style={{ fontSize: 15 }} />
+              <span style={{ marginLeft: 2 }}>add photo</span>
+            </>
+          )}
+        </button>
+      </div>
+      <input
+        ref={addPhotoRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={handleAddPhoto}
+      />
 
       {/* Totals bar */}
       <div style={{ backgroundColor: '#fff', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>

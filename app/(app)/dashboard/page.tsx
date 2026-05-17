@@ -191,17 +191,22 @@ export default function DashboardPage() {
           MEAL_SLOTS.map((s) => <Skeleton key={s.key} height={52} borderRadius={16} />)
         ) : data ? (
           MEAL_SLOTS.map((slot) => {
-            const meal = data.meals.find((m) => m.meal_type === slot.key)
+            const slotMeals = data.meals.filter((m) => m.meal_type === slot.key)
 
-            if (meal) {
-              const itemNames = meal.items.slice(0, 2).map((i) => i.item_name).join(', ')
+            if (slotMeals.length > 0) {
+              // Merge items and calories from all meals for this slot
+              const allItems = slotMeals.flatMap((m) => m.items)
+              const totalCalories = slotMeals.reduce((s, m) => s + (m.total_calories ?? 0), 0)
+              // Link to the most recently logged meal (array is ascending by eaten_at)
+              const latestMeal = slotMeals[slotMeals.length - 1]
+              const itemNames = allItems.slice(0, 2).map((i) => i.item_name).join(', ')
               const subtitle = itemNames
-                ? `${itemNames} · ${meal.total_calories ?? 0} kcal`
-                : `${meal.total_calories ?? 0} kcal`
+                ? `${itemNames} · ${totalCalories} kcal`
+                : `${totalCalories} kcal`
               return (
                 <Link
                   key={slot.key}
-                  href={`/meal/${meal.id}`}
+                  href={`/meal/${latestMeal.id}`}
                   className="flex items-center gap-3"
                   style={{ backgroundColor: '#fff', borderRadius: 16, padding: '14px 16px', textDecoration: 'none' }}
                 >
@@ -212,8 +217,8 @@ export default function DashboardPage() {
                       {subtitle}
                     </p>
                   </div>
-                  {meal.eaten_at && (
-                    <p style={{ fontSize: 11, color: '#6B7280', flexShrink: 0 }}>{formatTimeIST(meal.eaten_at)}</p>
+                  {latestMeal.eaten_at && (
+                    <p style={{ fontSize: 11, color: '#6B7280', flexShrink: 0 }}>{formatTimeIST(latestMeal.eaten_at)}</p>
                   )}
                 </Link>
               )

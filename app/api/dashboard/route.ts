@@ -49,7 +49,7 @@ export async function GET() {
       .single(),
     supabase
       .from('meals')
-      .select('id, meal_type, eaten_at, total_calories, total_protein_g, total_carbs_g, total_fat_g, ai_notes, meal_items(item_name, quantity, unit)')
+      .select('id, meal_type, eaten_at, total_calories, total_protein_g, total_carbs_g, total_fat_g, ai_notes')
       .eq('user_id', user.id)
       .gte('eaten_at', start)
       .lt('eaten_at', end)
@@ -61,6 +61,22 @@ export async function GET() {
   }
 
   const todayMeals = meals ?? []
+
+  // Fetch meal_items separately to avoid PostgREST embedded-select row duplication
+  const mealIds = todayMeals.map((m) => m.id)
+  const { data: allItems } = mealIds.length > 0
+    ? await supabase
+        .from('meal_items')
+        .select('meal_id, item_name, quantity, unit')
+        .in('meal_id', mealIds)
+    : { data: [] }
+
+  const itemsByMealId: Record<string, { item_name: string; quantity: number; unit: string }[]> = {}
+  for (const item of allItems ?? []) {
+    const mid = (item as { meal_id: string; item_name: string; quantity: number; unit: string }).meal_id
+    if (!itemsByMealId[mid]) itemsByMealId[mid] = []
+    itemsByMealId[mid].push(item as { item_name: string; quantity: number; unit: string })
+  }
 
   const today = {
     calories_consumed: todayMeals.reduce((s, m) => s + (m.total_calories ?? 0), 0),
@@ -106,7 +122,7 @@ export async function GET() {
       total_carbs_g:   m.total_carbs_g,
       total_fat_g:     m.total_fat_g,
       ai_notes:        m.ai_notes,
-      items:           m.meal_items ?? [],
+      items:           itemsByMealId[m.id] ?? [],
     })),
   })
 }
