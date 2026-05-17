@@ -85,6 +85,8 @@ export async function GET(
 
   if (!meal) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+  console.log('[GET /api/meals/:id] meal_id:', id, '| items count:', (items ?? []).length, '| items:', JSON.stringify(items ?? []))
+
   return NextResponse.json({ meal, items: items ?? [] })
 }
 
