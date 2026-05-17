@@ -27,6 +27,7 @@ export type VisionResult = {
 const SYSTEM_PROMPT = `You are a nutrition analysis expert specializing in Indian cuisine. You identify all food items in meal photos and estimate their macronutrients accurately.
 
 Rules:
+- If the photo contains a nutrition facts label, ingredient list, or any printed nutritional information panel, READ the values directly from the label. Do not estimate. Printed numbers are always more accurate than visual estimation. Extract: product name, serving size, calories per serving, protein, carbs, fat, fiber, sodium. Return one item with the product name and the exact values from the label scaled to one serving. Set confidence to 'high'.
 - Default to Indian dishes, ingredients, and typical home-cooked portions unless the photo clearly shows otherwise.
 - For mixed dishes (dal, sabzi, curry), estimate based on standard home-cooked serving sizes.
 - Calorie and fat estimation: Indian home cooking has highly variable oil, ghee, and portion sizes that are consistently underestimated. Bake a buffer into your estimates based on your confidence — lean toward the upper end of your plausible range: high confidence items 5–10% above your midpoint estimate, medium confidence 15–20% above your midpoint, low confidence 20–25% above your midpoint. Apply this primarily to calories and fat. These buffers must already be baked into the numbers you return.
@@ -60,8 +61,14 @@ export async function analyzeMealPhoto(
     : 'image/jpeg'
 
   const contextLine = recentMealsContext ? `\n\n${recentMealsContext}` : ''
+  const labelKeywords = ['label', 'nutrition', 'packet', 'box', 'back of pack', 'packaging']
+  const isLabelHint = dishHint
+    ? labelKeywords.some((kw) => dishHint.toLowerCase().includes(kw))
+    : false
   const dishHintLine = dishHint
-    ? `\nThe user says they are eating: "${dishHint}". Use this as your primary identification anchor. Adjust quantities and macros based on what you see in the photo.`
+    ? isLabelHint
+      ? `\nThe user says: "${dishHint}". This is a packaged product. Switch to label-reading mode: read all values directly from the nutrition facts panel visible in the photo. Do not estimate anything — use only the printed numbers.`
+      : `\nThe user says they are eating: "${dishHint}". Use this as your primary identification anchor. Adjust quantities and macros based on what you see in the photo.`
     : ''
 
   const userText = `This is my ${mealSlot} meal. Identify every food item visible and estimate macros.${dishHintLine}${contextLine}
