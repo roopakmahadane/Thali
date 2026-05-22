@@ -306,32 +306,32 @@ function EditMealContent() {
       </div>
 
       {/* Slot picker — reassigns this meal to a different type, does not navigate */}
-      <p style={{ fontSize: 11, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-        meal type
-      </p>
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-5" style={{ scrollbarWidth: 'none' }}>
-        {MEAL_SLOTS.map((slot) => {
-          const active = selectedSlot === slot.key
-          return (
-            <button
-              key={slot.key}
-              onClick={() => setSelectedSlot(slot.key)}
-              disabled={busy}
-              className="flex-shrink-0 px-4 py-2 text-sm"
-              style={{
-                borderRadius: 999,
-                fontWeight: active ? 500 : 400,
-                backgroundColor: active ? slot.color : '#fff',
-                color: active ? '#fff' : '#6B7280',
-                border: 'none',
-                borderLeft: active ? 'none' : `3px solid ${slot.color}`,
-                cursor: busy ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {slot.label}
-            </button>
-          )
-        })}
+      <div
+        className="flex items-center justify-between mb-4"
+        style={{ backgroundColor: '#fff', borderRadius: 12, padding: '12px 16px' }}
+      >
+        <p style={{ fontSize: 13, color: '#6B7280' }}>meal slot</p>
+        <div className="flex items-center gap-2">
+          <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: slotConfig?.color ?? '#6B7280', flexShrink: 0 }} />
+          <select
+            value={selectedSlot}
+            onChange={(e) => setSelectedSlot(e.target.value as MealSlotKey)}
+            disabled={busy}
+            style={{
+              fontSize: 13,
+              color: '#0F1B2D',
+              border: 'none',
+              background: 'transparent',
+              fontWeight: 500,
+              outline: 'none',
+              cursor: busy ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {MEAL_SLOTS.map((slot) => (
+              <option key={slot.key} value={slot.key}>{slot.label}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Time picker */}
