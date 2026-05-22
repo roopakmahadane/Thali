@@ -99,7 +99,11 @@ export default function DashboardPage() {
       setLoading(true)
       fetch('/api/dashboard', { cache: 'no-store' })
         .then((r) => r.json())
-        .then((d) => { setData(d); setLoading(false) })
+        .then((d) => {
+          console.log('[dashboard] client meals:', JSON.stringify((d.meals ?? []).map((m: DashboardMeal) => ({ id: m.id, meal_type: m.meal_type }))))
+          setData(d)
+          setLoading(false)
+        })
         .catch(() => setLoading(false))
     }
     fetchData()
