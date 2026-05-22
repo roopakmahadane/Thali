@@ -113,7 +113,6 @@ export async function GET() {
   }
 
   const mergedMeals = Object.values(mergedByType)
-  console.log('[dashboard] mergedMeals:', JSON.stringify(mergedMeals.map(m => ({ id: m.id, meal_type: m.meal_type }))))
 
   // Totals computed from merged meals — prevents double-counting duplicate slot rows
   const today = {

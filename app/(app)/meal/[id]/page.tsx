@@ -58,6 +58,7 @@ function EditMealContent() {
   const [originalUTC,      setOriginalUTC]       = useState('')  // original eaten_at for date anchoring
   const [items,            setItems]             = useState<EditItem[]>([])
   const [selectedSlot,     setSelectedSlot]      = useState<MealSlotKey>('breakfast')
+  const [reassigning,      setReassigning]       = useState(false)
   const [loggedAt,         setLoggedAt]          = useState('')
   const [aiNotes,          setAiNotes]           = useState('')
   const [isSaving,         setIsSaving]          = useState(false)
@@ -305,33 +306,45 @@ function EditMealContent() {
         </button>
       </div>
 
-      {/* Slot picker — reassigns this meal to a different type, does not navigate */}
+      {/* Slot row */}
       <div
         className="flex items-center justify-between mb-4"
         style={{ backgroundColor: '#fff', borderRadius: 12, padding: '12px 16px' }}
       >
-        <p style={{ fontSize: 13, color: '#6B7280' }}>meal slot</p>
         <div className="flex items-center gap-2">
           <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: slotConfig?.color ?? '#6B7280', flexShrink: 0 }} />
+          <p style={{ fontSize: 14, color: '#0F1B2D', fontWeight: 500 }}>{slotConfig?.label}</p>
+        </div>
+        {reassigning ? (
           <select
+            autoFocus
             value={selectedSlot}
-            onChange={(e) => setSelectedSlot(e.target.value as MealSlotKey)}
+            onChange={(e) => { setSelectedSlot(e.target.value as MealSlotKey); setReassigning(false) }}
+            onBlur={() => setReassigning(false)}
             disabled={busy}
             style={{
               fontSize: 13,
               color: '#0F1B2D',
-              border: 'none',
-              background: 'transparent',
-              fontWeight: 500,
+              border: '1px solid #E5E7EB',
+              borderRadius: 8,
+              padding: '4px 8px',
               outline: 'none',
-              cursor: busy ? 'not-allowed' : 'pointer',
+              backgroundColor: '#fff',
             }}
           >
             {MEAL_SLOTS.map((slot) => (
               <option key={slot.key} value={slot.key}>{slot.label}</option>
             ))}
           </select>
-        </div>
+        ) : (
+          <button
+            onClick={() => setReassigning(true)}
+            disabled={busy}
+            style={{ fontSize: 12, color: '#6B7280', background: 'none', border: 'none', cursor: busy ? 'not-allowed' : 'pointer', padding: 0 }}
+          >
+            change
+          </button>
+        )}
       </div>
 
       {/* Time picker */}
