@@ -55,13 +55,13 @@ function timeToISO(timeStr: string, referenceUTC: string): string {
   return new Date(istDt.getTime() - IST_MS).toISOString()
 }
 
-function defaultLoggedAt(slotKey: MealSlotKey): string {
-  const slot = MEAL_SLOTS.find((s) => s.key === slotKey)!
-  return `${String(slot.defaultHour).padStart(2, '0')}:00`
+function currentTimeIST(): string {
+  const ist = new Date(Date.now() + IST_MS)
+  return `${String(ist.getUTCHours()).padStart(2, '0')}:${String(ist.getUTCMinutes()).padStart(2, '0')}`
 }
 
 function loadingSlotState(slotKey: MealSlotKey): SlotState {
-  return { status: 'loading', mealId: null, originalUTC: null, loggedAt: defaultLoggedAt(slotKey), aiNotes: '', items: [] }
+  return { status: 'loading', mealId: null, originalUTC: null, loggedAt: currentTimeIST(), aiNotes: '', items: [] }
 }
 
 // ─── Main content ─────────────────────────────────────────────────────────────
@@ -133,7 +133,7 @@ function TodayContent() {
             status:      'loaded',
             mealId:      meal?.id ?? null,
             originalUTC: meal?.eaten_at ?? null,
-            loggedAt:    meal ? utcToISTTimeStr(meal.eaten_at) : defaultLoggedAt(activeSlot),
+            loggedAt:    meal ? utcToISTTimeStr(meal.eaten_at) : currentTimeIST(),
             aiNotes:     meal?.ai_notes ?? '',
             items:       editItems,
           },
