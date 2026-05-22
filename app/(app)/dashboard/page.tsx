@@ -212,7 +212,7 @@ export default function DashboardPage() {
               return (
                 <Link
                   key={slot.key}
-                  href={`/meal/${latestMeal.id}`}
+                  href={`/today?slot=${slot.key}`}
                   className="flex items-center gap-3"
                   style={{ backgroundColor: '#fff', borderRadius: 16, padding: '14px 16px', textDecoration: 'none' }}
                 >
@@ -233,7 +233,7 @@ export default function DashboardPage() {
             return (
               <Link
                 key={slot.key}
-                href={`/meal/new?slot=${slot.key}`}
+                href={`/today?slot=${slot.key}`}
                 className="flex items-center gap-3"
                 style={{
                   backgroundColor: '#fff', border: '1px dashed #E5E7EB',
