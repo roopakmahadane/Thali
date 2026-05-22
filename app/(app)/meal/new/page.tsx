@@ -7,7 +7,7 @@ import { MEAL_SLOTS, type MealSlotKey } from '@/lib/config/meals'
 import type { VisionMealItem } from '@/lib/vision'
 import type { FrequentFood } from '@/lib/types'
 
-type MacrosPerUnit = {
+export type MacrosPerUnit = {
   calories_per_unit:  number
   protein_g_per_unit: number
   carbs_g_per_unit:   number
@@ -16,11 +16,11 @@ type MacrosPerUnit = {
   sodium_mg_per_unit: number
 }
 
-const UNIT_OPTIONS = ['piece', 'g', 'ml', 'cup', 'bowl', 'tbsp', 'tsp', 'slice'] as const
+export const UNIT_OPTIONS = ['piece', 'g', 'ml', 'cup', 'bowl', 'tbsp', 'tsp', 'slice'] as const
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type EditItem = VisionMealItem & { source: 'ai' | 'manual'; _base: VisionMealItem; _fromBarcode?: boolean }
+export type EditItem = VisionMealItem & { source: 'ai' | 'manual'; _base: VisionMealItem; _fromBarcode?: boolean }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -45,25 +45,60 @@ function timeToISO(timeStr: string): string {
   return new Date(istDt.getTime() - IST_MS).toISOString()
 }
 
-function blankItem(): EditItem {
+export function blankItem(): EditItem {
   const base: VisionMealItem = { item_name: '', quantity: 1, unit: 'g', calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0, sodium_mg: 0, confidence: 'high' }
   return { ...base, source: 'manual', _base: base }
 }
 
-function parseServingGrams(s: string): number {
+export function parseServingGrams(s: string): number {
   const m = s.match(/(\d+(?:\.\d+)?)/)
   return m ? parseFloat(m[1]) : 100
 }
 
 // ─── Spinner ──────────────────────────────────────────────────────────────────
 
-function Spinner() {
+export function Spinner() {
   return (
     <div
       className="animate-spin"
       style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid currentColor', borderTopColor: 'transparent', display: 'inline-block' }}
     />
   )
+}
+
+// ─── Image compression ────────────────────────────────────────────────────────
+
+export function compressImage(file: File): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const MAX = 1024
+      let { width, height } = img
+      if (width > MAX || height > MAX) {
+        if (width > height) {
+          height = Math.round((height * MAX) / width)
+          width = MAX
+        } else {
+          width = Math.round((width * MAX) / height)
+          height = MAX
+        }
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0, width, height)
+      canvas.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error('canvas toBlob failed'))),
+        'image/jpeg',
+        0.8,
+      )
+    }
+    img.onerror = reject
+    img.src = url
+  })
 }
 
 // ─── Main content ─────────────────────────────────────────────────────────────
@@ -144,41 +179,6 @@ function NewMealContent() {
     setPhotoFile(file)
     setPhotoPreview(URL.createObjectURL(file))
     setError(null)
-  }
-
-  // ── Image compression ────────────────────────────────────────────────────
-
-  function compressImage(file: File): Promise<Blob> {
-    return new Promise((resolve, reject) => {
-      const img = new Image()
-      const url = URL.createObjectURL(file)
-      img.onload = () => {
-        URL.revokeObjectURL(url)
-        const MAX = 1024
-        let { width, height } = img
-        if (width > MAX || height > MAX) {
-          if (width > height) {
-            height = Math.round((height * MAX) / width)
-            width = MAX
-          } else {
-            width = Math.round((width * MAX) / height)
-            height = MAX
-          }
-        }
-        const canvas = document.createElement('canvas')
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')!
-        ctx.drawImage(img, 0, 0, width, height)
-        canvas.toBlob(
-          (blob) => (blob ? resolve(blob) : reject(new Error('canvas toBlob failed'))),
-          'image/jpeg',
-          0.8,
-        )
-      }
-      img.onerror = reject
-      img.src = url
-    })
   }
 
   // ── Analyze ───────────────────────────────────────────────────────────────
