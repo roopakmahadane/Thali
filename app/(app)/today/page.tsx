@@ -30,6 +30,19 @@ type SlotState = {
 
 const IST_MS = (5 * 60 + 30) * 60 * 1000
 
+function formatDateParam(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const date = new Date(Date.UTC(y, m - 1, d, 6, 30, 0))
+  return new Intl.DateTimeFormat('en-IN', {
+    weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata',
+  }).format(date).toLowerCase().replace(/,/g, '')
+}
+
+function dateParamToReferenceUTC(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d, 6, 30, 0)).toISOString()
+}
+
 function utcToISTTimeStr(utcTs: string): string {
   const ist = new Date(new Date(utcTs).getTime() + IST_MS)
   return `${String(ist.getUTCHours()).padStart(2, '0')}:${String(ist.getUTCMinutes()).padStart(2, '0')}`
@@ -58,6 +71,7 @@ function TodayContent() {
   const searchParams = useSearchParams()
 
   const slotParam   = searchParams.get('slot')
+  const dateParam   = searchParams.get('date')
   const validKeys   = MEAL_SLOTS.map((s) => s.key) as string[]
   const initialSlot = (validKeys.includes(slotParam ?? '') ? slotParam : 'breakfast') as MealSlotKey
 
@@ -88,7 +102,7 @@ function TodayContent() {
 
     setCache((prev) => ({ ...prev, [activeSlot]: loadingSlotState(activeSlot) }))
 
-    fetch(`/api/meals/today?slot=${activeSlot}`)
+    fetch(`/api/meals/today?slot=${activeSlot}${dateParam ? `&date=${dateParam}` : ''}`)
       .then((r) => r.json())
       .then(({ meal, items: fetchedItems }: {
         meal: { id: string; meal_type: string; eaten_at: string; ai_notes: string | null } | null
@@ -385,7 +399,9 @@ function TodayContent() {
     setIsSaving(true)
     setError(null)
     try {
-      const eaten_at = timeToISO(slotState.loggedAt, slotState.originalUTC ?? new Date().toISOString())
+      const referenceUTC = slotState.originalUTC
+        ?? (dateParam ? dateParamToReferenceUTC(dateParam) : new Date().toISOString())
+      const eaten_at = timeToISO(slotState.loggedAt, referenceUTC)
       const itemsPayload = slotState.items.map(({ _base: _b, _fromBarcode: _fb, ...rest }) => rest)
 
       if (slotState.mealId) {
@@ -405,7 +421,7 @@ function TodayContent() {
         const { meal_id } = await res.json()
         patchSlot({ mealId: meal_id })
       }
-      router.push('/dashboard')
+      router.push(dateParam ? '/calendar' : '/dashboard')
     } catch {
       setError("couldn't save changes")
       setIsSaving(false)
@@ -420,7 +436,7 @@ function TodayContent() {
     try {
       const res = await fetch(`/api/meals/${slotState.mealId}`, { method: 'DELETE' })
       if (!res.ok) throw new Error()
-      router.push('/dashboard')
+      router.push(dateParam ? '/calendar' : '/dashboard')
     } catch {
       setError("couldn't delete meal")
       setIsDeleting(false)
@@ -550,7 +566,9 @@ function TodayContent() {
           >
             <i className="ti ti-arrow-left" style={{ fontSize: 22 }} />
           </button>
-          <p style={{ fontSize: 17, fontWeight: 500, color: '#0F1B2D', flex: 1 }}>today</p>
+          <p style={{ fontSize: 17, fontWeight: 500, color: '#0F1B2D', flex: 1 }}>
+            {dateParam ? formatDateParam(dateParam) : 'today'}
+          </p>
           <button
             onClick={handleDelete}
             disabled={busy || !slotState?.mealId}

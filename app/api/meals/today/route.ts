@@ -3,22 +3,27 @@ import { createClient } from '@/lib/supabase/server'
 
 const IST_MS = (5 * 60 + 30) * 60 * 1000
 
+function getBoundaryForIST(dateStr: string): { start: string; end: string } {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const istMidnightUTC = new Date(Date.UTC(y, m - 1, d) - IST_MS)
+  const start = new Date(istMidnightUTC.getTime() + 4 * 3600 * 1000)
+  const end   = new Date(start.getTime() + 24 * 3600 * 1000)
+  return { start: start.toISOString(), end: end.toISOString() }
+}
+
 function getTodayBoundaryUTC(): { start: string; end: string } {
   const now = new Date()
   const nowIST = new Date(now.getTime() + IST_MS)
   let year = nowIST.getUTCFullYear()
-  let month = nowIST.getUTCMonth()
+  let month = nowIST.getUTCMonth() + 1
   let day = nowIST.getUTCDate()
   if (nowIST.getUTCHours() < 4) {
-    const prev = new Date(Date.UTC(year, month, day - 1))
+    const prev = new Date(Date.UTC(year, month - 1, day - 1))
     year = prev.getUTCFullYear()
-    month = prev.getUTCMonth()
+    month = prev.getUTCMonth() + 1
     day = prev.getUTCDate()
   }
-  const istMidnightUTC = new Date(Date.UTC(year, month, day) - IST_MS)
-  const start = new Date(istMidnightUTC.getTime() + 4 * 3600 * 1000)
-  const end = new Date(start.getTime() + 24 * 3600 * 1000)
-  return { start: start.toISOString(), end: end.toISOString() }
+  return getBoundaryForIST(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`)
 }
 
 export async function GET(req: NextRequest) {
@@ -30,7 +35,8 @@ export async function GET(req: NextRequest) {
   const slot = req.nextUrl.searchParams.get('slot')
   if (!slot) return NextResponse.json({ error: 'Missing slot' }, { status: 400 })
 
-  const { start, end } = getTodayBoundaryUTC()
+  const dateParam = req.nextUrl.searchParams.get('date')
+  const { start, end } = dateParam ? getBoundaryForIST(dateParam) : getTodayBoundaryUTC()
 
   const { data: meals } = await supabase
     .from('meals')

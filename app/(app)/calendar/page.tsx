@@ -219,7 +219,7 @@ export default function CalendarPage() {
                 return (
                   <Link
                     key={idx}
-                    href={`/meal/${meal.id}`}
+                    href={`/today?slot=${meal.meal_type}&date=${selectedDay.date}`}
                     className="flex items-center gap-3"
                     style={{ textDecoration: 'none' }}
                   >
