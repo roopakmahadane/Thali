@@ -202,6 +202,7 @@ export default function DashboardPage() {
         ) : data ? (
           MEAL_SLOTS.map((slot) => {
             const slotMeals = data.meals.filter((m) => m.meal_type === slot.key)
+            console.log('[slot card]', slot.key, 'slotMeals:', slotMeals.map(m => m.id), 'length:', slotMeals.length)
 
             if (slotMeals.length > 0) {
               // Merge items and calories from all meals for this slot
