@@ -145,9 +145,6 @@ export async function GET() {
     }
   }
 
-  console.log('[dashboard] raw meal rows:', todayMeals.map((m) => ({ id: m.id, meal_type: m.meal_type, total_calories: m.total_calories })))
-  console.log('[dashboard] mergedMeals:', mergedMeals.map((m) => ({ meal_type: m.meal_type, total_calories: m.total_calories, item_count: m.items.length })))
-
   return NextResponse.json({
     profile,
     today,

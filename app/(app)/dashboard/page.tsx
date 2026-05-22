@@ -95,10 +95,16 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/dashboard', { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((d) => { setData(d); setLoading(false) })
-      .catch(() => setLoading(false))
+    const fetchData = () => {
+      setLoading(true)
+      fetch('/api/dashboard', { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((d) => { setData(d); setLoading(false) })
+        .catch(() => setLoading(false))
+    }
+    fetchData()
+    document.addEventListener('visibilitychange', fetchData)
+    return () => document.removeEventListener('visibilitychange', fetchData)
   }, [])
 
   const dateStr = formatDateIST()
