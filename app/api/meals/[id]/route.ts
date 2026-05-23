@@ -159,12 +159,26 @@ export async function PUT(
     .eq('user_id', user.id)
 
   // Replace all meal_items
-  await supabase.from('meal_items').delete().eq('meal_id', id)
+  const { error: deleteError } = await supabase.from('meal_items').delete().eq('meal_id', id)
+  if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 })
 
   if (items.length > 0) {
-    await supabase.from('meal_items').insert(
-      items.map((item) => ({ meal_id: id, ...item })),
+    const { error: insertError } = await supabase.from('meal_items').insert(
+      items.map((item) => ({
+        meal_id:   id,
+        item_name: item.item_name,
+        quantity:  item.quantity,
+        unit:      item.unit,
+        calories:  item.calories,
+        protein_g: item.protein_g,
+        carbs_g:   item.carbs_g,
+        fat_g:     item.fat_g,
+        fiber_g:   item.fiber_g,
+        sodium_mg: item.sodium_mg,
+        source:    item.source,
+      })),
     )
+    if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 })
   }
 
   // Upsert frequent_foods for each item
