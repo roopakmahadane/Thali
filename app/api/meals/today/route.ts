@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
     const todayMeals = meals ?? []
 
     if (todayMeals.length === 0) {
-      return NextResponse.json({ meal: null, items: [] })
+      return NextResponse.json({ meal: null, items: [], _debug: { slot, boundary_start: start, boundary_end: end, meals_found: 0, user_id: user.id } })
     }
 
     const mealIds = todayMeals.map((m) => m.id)
@@ -101,7 +101,7 @@ export async function GET(req: NextRequest) {
       mergedItems.push(...(mItems as unknown as ItemRow[]))
     }
 
-    return NextResponse.json({ meal: merged, items: mergedItems })
+    return NextResponse.json({ meal: merged, items: mergedItems, _debug: { slot, boundary_start: start, boundary_end: end, meals_found: meals?.length ?? 0, user_id: user.id } })
   } catch (error) {
     console.log('[today-api] CRASH:', error)
     return NextResponse.json({ error: 'internal error', detail: String(error) }, { status: 500 })
