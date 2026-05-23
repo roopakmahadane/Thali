@@ -145,23 +145,26 @@ export default function DashboardPage() {
       ) : data ? (
         <div className="mb-3" style={{ backgroundColor: '#fff', borderRadius: 20, padding: 18 }}>
           <p style={{ fontSize: 11, color: '#6B7280', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 4 }}>
-            calories left
+            calories consumed
           </p>
           <div className="flex items-baseline gap-1 mb-1">
             <span style={{ fontSize: 36, fontWeight: 500, color: '#0F1B2D', lineHeight: 1 }}>
-              {Math.max(0, data.profile.daily_calories - data.today.calories_consumed).toLocaleString()}
+              {data.today.calories_consumed.toLocaleString()}
             </span>
             <span style={{ fontSize: 14, color: '#6B7280' }}>
-              / {data.profile.daily_calories.toLocaleString()} kcal
+              / {data.profile.daily_calories.toLocaleString()} kcal target
             </span>
           </div>
-          <div className="mb-4">
+          <div className="mb-2">
             <ProgressBar
               pct={(data.today.calories_consumed / data.profile.daily_calories) * 100}
               height={6}
               fill="#D4F542"
             />
           </div>
+          <p className="mb-4" style={{ fontSize: 13, color: '#6B7280' }}>
+            {Math.max(0, data.profile.daily_calories - data.today.calories_consumed).toLocaleString()} kcal remaining
+          </p>
           <div className="grid grid-cols-3 gap-3">
             {[
               { label: 'PROTEIN', consumed: Math.round(data.today.protein_g), target: data.profile.daily_protein_g },
