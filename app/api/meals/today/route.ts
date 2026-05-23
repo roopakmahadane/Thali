@@ -27,6 +27,7 @@ function getTodayBoundaryUTC(): { start: string; end: string } {
 }
 
 export async function GET(req: NextRequest) {
+  console.log('[today-api-v2] FRESH DEPLOY', new Date().toISOString())
   console.log('[today-api] handler called, url:', req.url)
   const supabase = await createClient()
 
