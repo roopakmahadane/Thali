@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
 
   const dateParam = req.nextUrl.searchParams.get('date')
   const { start, end } = dateParam ? getBoundaryForIST(dateParam) : getTodayBoundaryUTC()
+  console.log('[today-api] boundary:', start, 'to', end)
 
   const { data: meals } = await supabase
     .from('meals')
@@ -47,6 +48,7 @@ export async function GET(req: NextRequest) {
     .gte('eaten_at', start)
     .lt('eaten_at', end)
     .order('eaten_at', { ascending: true })
+  console.log('[today-api] meals found:', meals?.length ?? 0)
 
   const todayMeals = meals ?? []
 
