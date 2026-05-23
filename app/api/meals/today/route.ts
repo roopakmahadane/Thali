@@ -36,12 +36,9 @@ export async function GET(req: NextRequest) {
   if (!slot) return NextResponse.json({ error: 'Missing slot' }, { status: 400 })
 
   const dateParam = req.nextUrl.searchParams.get('date')
-  console.log('[today] slot:', slot, 'dateParam:', dateParam)
-
   const { start, end } = dateParam ? getBoundaryForIST(dateParam) : getTodayBoundaryUTC()
-  console.log('[today] boundary start:', start, 'end:', end)
 
-  const { data: meals, error: mealsError } = await supabase
+  const { data: meals } = await supabase
     .from('meals')
     .select('id, meal_type, eaten_at, ai_notes, total_calories, total_protein_g, total_carbs_g, total_fat_g')
     .eq('user_id', user.id)
@@ -49,7 +46,6 @@ export async function GET(req: NextRequest) {
     .gte('eaten_at', start)
     .lt('eaten_at', end)
     .order('eaten_at', { ascending: true })
-  console.log('[today] meals found:', meals?.length ?? 0, 'error:', mealsError?.message ?? null)
 
   const todayMeals = meals ?? []
 

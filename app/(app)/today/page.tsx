@@ -82,6 +82,7 @@ function TodayContent() {
 
   const [activeSlot,        setActiveSlot]        = useState<MealSlotKey>(initialSlot)
   const [cache,             setCache]              = useState<Partial<Record<MealSlotKey, SlotState>>>({})
+  const [refetchKey,        setRefetchKey]         = useState(0)
   const [isSaving,          setIsSaving]           = useState(false)
   const [isDeleting,        setIsDeleting]         = useState(false)
   const [isPhotoAnalyzing,  setIsPhotoAnalyzing]   = useState(false)
@@ -142,7 +143,7 @@ function TodayContent() {
       .catch(() => {
         setCache((prev) => ({ ...prev, [activeSlot]: { ...loadingSlotState(activeSlot), status: 'error' } }))
       })
-  }, [activeSlot])
+  }, [activeSlot, refetchKey])
 
   // ── Fetch quick foods (once on mount) ─────────────────────────────────────
 
@@ -151,6 +152,19 @@ function TodayContent() {
       .then((r) => r.json())
       .then((d) => setQuickFoods(d.foods ?? []))
       .catch(() => {})
+  }, [])
+
+  // ── Refetch on tab return (clears stale router-cached component state) ───────
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      fetchedSlots.current.clear()
+      setCache({})
+      setRefetchKey((k) => k + 1)
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
   }, [])
 
   // ── ZXing barcode scanning ────────────────────────────────────────────────
